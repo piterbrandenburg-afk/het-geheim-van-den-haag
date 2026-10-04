@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Het geheim van Den Haag – Veldtest</title>
+<style>
+:root{--bg:#f4f1e8;--card:#fff;--ink:#17211b;--muted:#667068;--accent:#174c3c;--gold:#c39a48;--line:#d9d6cc;--bad:#a02c2c}
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--accent);color:white;padding:calc(18px + env(safe-area-inset-top)) 18px 18px}
+h1{font-size:24px;margin:0 0 5px} header p{margin:0;opacity:.86}
+main{max-width:760px;margin:auto;padding:14px 14px 110px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 10px #0000000b}
+h2{font-size:19px;margin:0 0 12px}.small{font-size:13px;color:var(--muted)}
+label{display:block;font-weight:650;margin:13px 0 6px}
+input,select,textarea,button{font:inherit}
+input,select,textarea{width:100%;border:1px solid #c8c8c1;border-radius:10px;padding:11px;background:white;color:var(--ink)}
+textarea{min-height:76px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:11px;padding:12px 14px;font-weight:700;cursor:pointer}
+.primary{background:var(--accent);color:white}.secondary{background:#e8ece9;color:var(--accent)}
+.danger{background:#f7e8e8;color:var(--bad)}.gps{display:grid;grid-template-columns:1fr auto;gap:8px}
+.status{font-size:13px;margin-top:6px;color:var(--muted)}.ok{color:#167044}.err{color:var(--bad)}
+.stars{display:flex;gap:5px}.stars button{background:#eee9dc;color:#6e5b2c;padding:8px 11px}.stars button.on{background:var(--gold);color:#fff}
+footer{position:fixed;bottom:0;left:0;right:0;background:#ffffffef;backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px max(14px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+footer .bar{max-width:760px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+details summary{font-weight:750;cursor:pointer}.badge{display:inline-block;background:#e6efe9;color:var(--accent);border-radius:99px;padding:3px 8px;font-size:12px;margin-left:5px}
+#report{white-space:pre-wrap;background:#f8f8f5;border:1px solid var(--line);padding:12px;border-radius:10px;max-height:360px;overflow:auto}
+@media(max-width:520px){.row{grid-template-columns:1fr}.gps{grid-template-columns:1fr} h1{font-size:22px}}
+</style>
+</head>
+<body>
+<header>
+<h1>🕵️ Het geheim van Den Haag</h1>
+<p>Mobiel veldtestformulier • versie 2</p>
+</header>
+<main>
+<section class="card">
+<h2>Veldtest</h2>
+<div class="row">
+<div><label>Tester</label><input id="tester" data-save placeholder="Naam"></div>
+<div><label>Datum</label><input id="date" data-save type="date"></div>
+</div>
+<label>Algemene opmerkingen</label><textarea id="general" data-save placeholder="Bijv. weer, drukte, bijzonderheden..."></textarea>
+<p class="small">Alles wordt automatisch lokaal op dit apparaat opgeslagen.</p>
+</section>
+<div id="locations"></div>
+<section class="card">
+<h2>Eindrapport</h2>
+<p class="small">Genereer na afloop één rapport met alle GPS-punten, scores en opmerkingen.</p>
+<div class="row">
+<button class="primary" id="makeReport">Genereer rapport</button>
+<button class="secondary" id="shareReport">Deel rapport</button>
+</div>
+<div style="margin-top:10px"><button class="secondary" id="copyReport" style="width:100%">Kopieer rapport</button></div>
+<div id="report" style="display:none;margin-top:12px"></div>
+</section>
+<section class="card">
+<details><summary>Problemen met GPS?</summary>
+<p class="small">Op iPhone moet locatietoegang voor de browser zijn toegestaan. GPS kan vanuit sommige bestandsvoorbeelden of ingebouwde viewers worden geblokkeerd. Open het formulier dan bij voorkeur rechtstreeks in Safari. Het formulier blijft ook zonder GPS bruikbaar: coördinaten kunnen handmatig worden ingevuld.</p>
+</details>
+</section>
+</main>
+<footer><div class="bar"><button class="secondary" id="exportData">Backup gegevens</button><button class="danger" id="reset">Wis formulier</button></div></footer>
+<script>
+const N=10, KEY='geheim-den-haag-veldtest-v2';
+const box=document.getElementById('locations');
+for(let i=1;i<=N;i++){
+ const s=document.createElement('section'); s.className='card';
+ s.innerHTML=`<h2>Locatie ${i} <span class="badge">testpunt</span></h2>
+ <label>Naam / plek</label><input data-save id="l${i}_name" placeholder="Naam van locatie">
+ <label>GPS-coördinaten</label><div class="gps"><input data-save id="l${i}_gps" placeholder="52.xxxxxx, 4.xxxxxx"><button class="primary" type="button" onclick="gps(${i})">📍 Leg GPS vast</button></div><div class="status" id="l${i}_status"></div>
+ <label>GPS-zone (meter)</label><input data-save id="l${i}_radius" type="number" inputmode="numeric" value="40">
+ <div class="row"><div><label>Opdracht</label>${rating(`l${i}_task`)}</div><div><label>Geschikt 8–12 jaar</label>${rating(`l${i}_kids`)}</div></div>
+ <div class="row"><div><label>Veiligheid</label>${rating(`l${i}_safe`)}</div><div><label>Vindbaarheid</label>${rating(`l${i}_find`)}</div></div>
+ <div class="row"><div><label>Tijd ter plaatse (min.)</label><input data-save id="l${i}_time" type="number" inputmode="numeric" placeholder="0"></div><div><label>Bonusopdracht</label>${rating(`l${i}_bonus`)}</div></div>
+ <label>Beste foto-/observatieplek</label><textarea data-save id="l${i}_photo" placeholder="Waar precies?"></textarea>
+ <label>Verbeterpunten / opmerkingen</label><textarea data-save id="l${i}_notes" placeholder="Wat moet anders?"></textarea>`;
+ box.appendChild(s);
+}
+function rating(id){return `<input data-save id="${id}" type="hidden"><div class="stars" data-rating="${id}">${[1,2,3,4,5].map(n=>`<button type="button" data-v="${n}">${n}★</button>`).join('')}</div>`}
+document.querySelectorAll('.stars').forEach(el=>el.addEventListener('click',e=>{
+ if(!e.target.dataset.v)return; document.getElementById(el.dataset.rating).value=e.target.dataset.v;
+ paint(el,Number(e.target.dataset.v)); save();
+}));
+function paint(el,v){el.querySelectorAll('button').forEach(b=>b.classList.toggle('on',Number(b.dataset.v)<=v))}
+function save(){const d={};document.querySelectorAll('[data-save]').forEach(x=>d[x.id]=x.value);localStorage.setItem(KEY,JSON.stringify(d))}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'{}');Object.entries(d).forEach(([k,v])=>{const x=document.getElementById(k);if(x)x.value=v});document.querySelectorAll('.stars').forEach(el=>paint(el,Number(document.getElementById(el.dataset.rating).value||0)))}catch(e){}}
+document.addEventListener('input',e=>{if(e.target.matches('[data-save]'))save()});
+async function gps(i){
+ const st=document.getElementById(`l${i}_status`); st.className='status'; st.textContent='GPS bepalen…';
+ if(!navigator.geolocation){st.className='status err';st.textContent='GPS wordt door deze browser/viewer niet ondersteund.';return}
+ navigator.geolocation.getCurrentPosition(p=>{
+  const v=`${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+  document.getElementById(`l${i}_gps`).value=v; save(); st.className='status ok';st.textContent=`✓ Vastgelegd • nauwkeurigheid ±${Math.round(p.coords.accuracy)} m`;
+ },e=>{st.className='status err';st.textContent='GPS niet beschikbaar: '+({1:'locatietoegang geweigerd',2:'positie niet beschikbaar',3:'time-out'}[e.code]||e.message)+'. Je kunt de coördinaten ook handmatig invullen.'},
+ {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+function report(){
+ let t=`HET GEHEIM VAN DEN HAAG – VELDTESTRAPPORT\nTester: ${val('tester')||'-'}\nDatum: ${val('date')||'-'}\nAlgemeen: ${val('general')||'-'}\n`;
+ for(let i=1;i<=N;i++) t+=`\nLOCATIE ${i}${val(`l${i}_name`)?' – '+val(`l${i}_name`):''}\nGPS: ${val(`l${i}_gps`)||'-'} | zone: ${val(`l${i}_radius`)||'-'} m\nOpdracht: ${val(`l${i}_task`)||'-'}/5 | 8–12 jaar: ${val(`l${i}_kids`)||'-'}/5 | Veiligheid: ${val(`l${i}_safe`)||'-'}/5 | Vindbaarheid: ${val(`l${i}_find`)||'-'}/5\nTijd: ${val(`l${i}_time`)||'-'} min | Bonus: ${val(`l${i}_bonus`)||'-'}/5\nFoto/observatie: ${val(`l${i}_photo`)||'-'}\nVerbeterpunten: ${val(`l${i}_notes`)||'-'}\n`;
+ const r=document.getElementById('report');r.textContent=t;r.style.display='block';return t
+}
+function val(id){return document.getElementById(id).value.trim()}
+document.getElementById('makeReport').onclick=report;
+document.getElementById('copyReport').onclick=async()=>{const t=report();try{await navigator.clipboard.writeText(t);alert('Rapport gekopieerd.')}catch(e){alert('Kopiëren is hier geblokkeerd. Selecteer de tekst in het rapport handmatig.')}};
+document.getElementById('shareReport').onclick=async()=>{const t=report();if(navigator.share){try{await navigator.share({title:'Veldtestrapport – Het geheim van Den Haag',text:t})}catch(e){}}else{try{await navigator.clipboard.writeText(t);alert('Delen wordt niet ondersteund; rapport is gekopieerd.')}catch(e){alert('Gebruik Kopieer rapport.')}}};
+document.getElementById('exportData').onclick=()=>{const blob=new Blob([localStorage.getItem(KEY)||'{}'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='veldtest-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+document.getElementById('reset').onclick=()=>{if(confirm('Alle ingevulde veldtestgegevens op dit apparaat wissen?')){localStorage.removeItem(KEY);location.reload()}};
+if(!document.getElementById('date').value)document.getElementById('date').value=new Date().toISOString().slice(0,10);
+load(); save();
+</script>
+</body></html>
